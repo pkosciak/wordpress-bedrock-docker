@@ -1,0 +1,47 @@
+version: "3.3"
+
+services:
+    php:
+        container_name: ${PROJECT_NAME}-php
+        build:
+            context: .
+            dockerfile: Dockerfile
+            args:
+                PHP_IMAGE: ${PHP_IMAGE}
+        networks:
+            - proxy
+        volumes:
+            - ./:/var/www/html
+    nginx:
+        container_name: ${PROJECT_NAME}-nginx
+        image: nginx:stable-alpine
+        labels:
+            - "traefik.enable=true"
+            - "traefik.docker.network=proxy"
+            - "traefik.http.routers.${PROJECT_NAME}.rule=Host(`${PROJECT_NAME}.test`) || HostRegexp(`{subdomain:[a-z0-9]+}.${PROJECT_NAME}.test`)"
+            - "traefik.http.routers.${PROJECT_NAME}.tls=true"
+        networks:
+            - proxy
+        volumes:
+            - ./:/var/www/html
+            - ./.docker/nginx/logs:/var/log/nginx
+            - ./.docker/nginx/conf:/etc/nginx/templates
+        environment:
+            PROJECT_NAME: ${PROJECT_NAME}
+    wpcli:
+        container_name: ${PROJECT_NAME}-cli
+        image: ${WP_CLI_IMAGE}
+        user: 1000:1000
+        command: tail -f /dev/null
+        volumes:
+            - ./:/var/www/html
+        environment:
+            WORDPRESS_DB_HOST: ${DB_HOST}
+            WORDPRESS_DB_USER: ${DB_USER}
+            WORDPRESS_DB_PASSWORD: ${DB_PASSWORD}
+            WORDPRESS_DB_NAME: ${PROJECT_NAME}
+        networks:
+            - proxy
+networks:
+  proxy:
+    external: true
